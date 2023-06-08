@@ -1,0 +1,74 @@
+#create an object
+set ns [new Simulator]
+
+#Set color
+$ns color 1 Blue
+$ns color 2 Red
+
+# Open nam trace file
+set nf [open out.nam w]
+$ns namtrace-all $nf
+
+# Define a finish procedure
+proc finish {} {
+    global ns nf
+    $ns flush-trace
+    
+    # Close nam file
+    close $nf
+    
+    # Execute nam trace file
+    exec nam out.nam &
+    exit 0
+}
+
+#create four nodes
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+
+#Create links between nodes
+$ns duplex-link $n0 $n2 2Mb 10ms DropTail
+$ns duplex-link $n1 $n2 2Mb 10ms DropTail
+$ns duplex-link $n2 $n3 1.7Mb 20ms DropTail
+
+# Queue size n2-n3
+$ns queue-limit $n2 $n3 10
+
+# Give node position 
+$ns duplex-link-op $n0 $n2 orient right-down
+$ns duplex-link-op $n1 $n2 orient right-up
+$ns duplex-link-op $n2 $n3 orient right
+
+# Monitor queue for link n2-n3
+$ns duplex-link-op $n2 $n3 queuePos 0.5
+
+#setup tcp connection
+set tcp [new Agent/TCP]
+$tcp set class_ 2
+$ns attach-agent $n0 $tcp
+
+set sink [new Agent/TCPSink]
+$ns attach-agent $n3 $sink
+$ns connect $tcp $sink
+$tcp set fid_ 1
+
+
+set ftp [new Application/FTP]
+$ftp attach-agent $tcp
+$ftp set type_ FTP
+
+
+set udp [new Agent/UDP]
+$ns attach-agent $n1 $udp
+set null [new Agent/Null]
+$ns attach-agent $n3 $null
+$ns connect $udp $null
+$udp set fid_ 2
+
+$ns at 1.0 "$ftp start"
+$ns at 4.0 "$ftp stop"
+
+$ns at 5.0 "finish"
+$ns run
